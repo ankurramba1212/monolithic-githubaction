@@ -5,13 +5,18 @@ on: workflow_dispatch
   #   branches: 
       # - 'feature/**'
       # - 'main'
+
+permissions: 
+  id-token: write
+  contents: read
+  
 jobs: 
   terraform_jobs:
     runs-on: newrunner
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
-        
+        # create app in azureportel fill details like git id , repo name , branch(optional)
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
