@@ -12,9 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5.0.0
         
-      - name: Install Terraform
-        uses: little-core-labs/install-terraform@v2.0.0
+      - name: Azure Login
+        uses: Azure/login@v2.3.0
         with:
-    # Version of terraform to download
-          version: 1.11.1
+          # ClientId of the Azure Service principal created.
+          client-id: 1c035810-e64d-42b4-b399-6973734a9302
+          # TenantId of the Azure Service principal created.
+          tenant-id: e66a3e9f-8b6b-4541-aa09-a25d0fbce6b1
+          # Azure subscriptionId
+          subscription-id: b43bd80e-9eef-4206-b932-7dba68f2f340
+          # Set this value to true to enable Azure PowerShell Login in addition to Azure CLI login
+         
+          
           
