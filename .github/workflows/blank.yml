@@ -30,7 +30,7 @@ jobs:
  
       - name: Terraform Init
         id: init
-        run: terraform init -input=false
+        run: terraform init
         working-directory: env/preprod
 
       - name: Terraform fmt
@@ -41,18 +41,19 @@ jobs:
 
       - name: Terraform validate
         id: validate
-        run: terraform validate -no-color
+        run: terraform validate
         working-directory: env/preprod
 
       - name: Terraform Plan
         id: Plan
-        run: terraform plan -no-color -input=false
+        run: terraform plan
         continue-on-error: true
         working-directory: env/preprod
   terraform_apply:
     environment: dev
     runs-on: newrunner
     needs: terraform_init_plan
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
@@ -70,12 +71,12 @@ jobs:
  
       - name: Terraform Init
         id: init
-        run: terraform init -input=false
+        run: terraform init
         working-directory: env/preprod
 
       - name: Terraform validate
         id: validate
-        run: terraform validate -no-color
+        run: terraform validate
         working-directory: env/preprod
 
       - name: Terraform Apply
