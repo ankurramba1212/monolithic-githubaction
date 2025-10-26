@@ -1,10 +1,13 @@
-name: "1st pipeline"
+name: "dev github action workflow"
 
-on: workflow_dispatch
-  # push:
-  #   branches: 
+on: 
+  pull_request:
+    branches: 
       # - 'feature/**'
-      # - 'main'
+      - 'main'
+  push:
+    branches: 
+      - 'main'
 
 permissions: 
   id-token: write
@@ -50,6 +53,7 @@ jobs:
         continue-on-error: true
         working-directory: env/preprod
   terraform_apply:
+    if: github.ref == 'refs/heads/main'
     environment: dev
     runs-on: newrunner
     needs: terraform_init_plan
@@ -60,8 +64,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
-        # create app in azureportel fill details like git id , repo name , branch(optional), permissions block dena padega
-        # nahi to error ayega
+
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
