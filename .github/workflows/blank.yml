@@ -48,9 +48,16 @@ jobs:
 
       - name: Terraform Plan
         id: Plan
-        run: terraform plan
+        run: terraform plan -out=tfplan
         continue-on-error: true
         working-directory: env/preprod
+      - name: Save Terraform Plan
+        id: SavePlan
+        uses: actions/upload-artifacts@v3
+        with:
+          name: tfplan
+          path: tfplan
+          
   terraform_apply:
     if: github.ref == 'refs/heads/main'
     environment: dev
@@ -79,15 +86,19 @@ jobs:
         run: terraform init
         working-directory: env/preprod
 
-      - name: Terraform validate
-        id: validate
-        run: terraform validate
-        working-directory: env/preprod
+      - name: Download terraform Plan
+        id: DownloadPlan
+        uses: actions/download-artifacts@v3
+        with:
+          name: tfplan
+          path: tfplan
+      
 
       - name: Terraform Apply
         id: Apply
-        run: terraform apply -auto-approve
-        working-directory: env/preprod
+        # run: terraform apply -auto-approve
+        run: terraform apply tfplan
+        # working-directory: env/preprod
 
           
          
