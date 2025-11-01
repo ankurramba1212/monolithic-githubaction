@@ -1,81 +1,106 @@
-name: "Github-Action-Pipeline"
+name: Github-Action-Pipeline
 
 on:
-  #app rejistration ke liye main credential ke time org , repo pull request lena padega or env bhi set kerna hoga or branch main bhi
   pull_request:
     branches:
-      # - 'feature/**'
-      - "main"
+      - 'main'
   push:
     branches:
-      - "main"
+      - 'main'
 
+# ✅ Global permissions (important for SARIF upload)
 permissions:
   id-token: write
   contents: read
+  security-events: write
 
 jobs:
   terraform_init_plan:
     runs-on: newrunner
+
     steps:
+      # -----------------------------
+      # Step 1: Checkout repository
+      # -----------------------------
       - name: Checkout
         uses: actions/checkout@v5.0.0
-        # create app in azureportel fill details like git id , repo name , branch(optional), permissions block dena padega
-        # nahi to error ayega
+
+      # -----------------------------
+      # Step 2: Azure Login
+      # -----------------------------
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
           client-id: 1c035810-e64d-42b4-b399-6973734a9302
           tenant-id: e66a3e9f-8b6b-4541-aa09-a25d0fbce6b1
-          # Azure subscriptionId
           subscription-id: b43bd80e-9eef-4206-b932-7dba68f2f340
 
+      # -----------------------------
+      # Step 3: Terraform Init
+      # -----------------------------
       - name: Terraform Init
-        id: init
+        working-directory: env/preprod
         run: terraform init
-        working-directory: env/preprod
 
+      # -----------------------------
+      # Step 4: Terraform FMT
+      # -----------------------------
       - name: Terraform fmt
-        id: fmt
-        run: terraform fmt -check
         working-directory: env/preprod
+        run: terraform fmt -check
         continue-on-error: true
 
+      # -----------------------------
+      # Step 5: Terraform Validate
+      # -----------------------------
       - name: Terraform validate
-        id: validate
-        run: terraform validate
         working-directory: env/preprod
+        run: terraform validate
 
-        # ✅ Install tfsec manually (Windows compatible)
+      # -----------------------------
+      # Step 6: Install tfsec (Windows compatible)
+      # -----------------------------
       - name: Install tfsec
         run: |
           choco install tfsec -y || scoop install tfsec
 
-      # ✅ Run tfsec security scan
+      # -----------------------------
+      # Step 7: Run tfsec Security Scan
+      # -----------------------------
       - name: Run tfsec security scan
         working-directory: env/preprod
         run: |
           tfsec . --format sarif --out tfsec.sarif || echo "tfsec found issues"
 
-      # ✅ Upload tfsec SARIF results to GitHub Security tab
+      # -----------------------------
+      # Step 8: Upload tfsec SARIF results (safe for forks)
+      # -----------------------------
       - name: Upload tfsec SARIF results to GitHub Security tab
-        if: always()
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: env/preprod/tfsec.sarif
 
+      # -----------------------------
+      # Step 9: Terraform Plan
+      # -----------------------------
       - name: Terraform Plan
-        id: Plan
-        run: terraform plan -out=tfplan
-        continue-on-error: true
+        id: plan
         working-directory: env/preprod
-      - name: Save Terraform Plan
-        id: SavePlan
+        run: terraform plan -out=tfplan
+
+      # -----------------------------
+      # Step 10: Upload Plan Artifact
+      # -----------------------------
+      - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: tfplan
+          path: env/preprod/tfplan
 
+  # -------------------------------------------------------------------
+  # APPLY STAGE (only runs on main)
+  # -------------------------------------------------------------------
   terraform_apply:
     if: github.ref == 'refs/heads/main'
     environment: dev
@@ -86,33 +111,31 @@ jobs:
       contents: read
 
     steps:
+      # Step 1: Checkout
       - name: Checkout
         uses: actions/checkout@v5.0.0
 
+      # Step 2: Azure Login
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
-          # ClientId of the Azure Service principal created.
           client-id: 1c035810-e64d-42b4-b399-6973734a9302
-          # TenantId of the Azure Service principal created.
           tenant-id: e66a3e9f-8b6b-4541-aa09-a25d0fbce6b1
-          # Azure subscriptionId
           subscription-id: b43bd80e-9eef-4206-b932-7dba68f2f340
 
+      # Step 3: Terraform Init
       - name: Terraform Init
-        id: init
-        run: terraform init
         working-directory: env/preprod
+        run: terraform init
 
-      - name: Download terraform Plan
-        id: DownloadPlan
+      # Step 4: Download Terraform Plan Artifact
+      - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: tfplan
-          path: tfplan
+          path: env/preprod
 
+      # Step 5: Terraform Apply
       - name: Terraform Apply
-        id: Apply
-        # run: terraform apply -auto-approve
-        run: terraform apply tfplan
-        # working-directory: env/preprod
+        working-directory: env/preprod
+        run: terraform apply -auto-approve tfplan
