@@ -8,7 +8,6 @@ on:
     branches:
       - 'main'
 
-# ✅ Global permissions (important for SARIF upload)
 permissions:
   id-token: write
   contents: read
@@ -58,14 +57,30 @@ jobs:
         run: terraform validate
 
       # -----------------------------
-      # Step 6: Install tfsec (Windows compatible)
+      # Step 6: Install TFLint
+      # -----------------------------
+      - name: Install TFLint
+        run: |
+          choco install tflint -y || scoop install tflint
+
+      # -----------------------------
+      # Step 7: Run TFLint
+      # -----------------------------
+      - name: Run TFLint (Terraform Linter)
+        working-directory: env/preprod
+        run: |
+          tflint --init
+          tflint --format compact || echo "TFLint found issues"
+
+      # -----------------------------
+      # Step 8: Install tfsec (Security Scanner)
       # -----------------------------
       - name: Install tfsec
         run: |
           choco install tfsec -y || scoop install tfsec
 
       # -----------------------------
-      # Step 7: Run tfsec Security Scan
+      # Step 9: Run tfsec Security Scan
       # -----------------------------
       - name: Run tfsec security scan
         working-directory: env/preprod
@@ -73,7 +88,7 @@ jobs:
           tfsec . --format sarif --out tfsec.sarif || echo "tfsec found issues"
 
       # -----------------------------
-      # Step 8: Upload tfsec SARIF results (safe for forks)
+      # Step 10: Upload tfsec SARIF results (safe for forks)
       # -----------------------------
       - name: Upload tfsec SARIF results to GitHub Security tab
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
@@ -82,7 +97,7 @@ jobs:
           sarif_file: env/preprod/tfsec.sarif
 
       # -----------------------------
-      # Step 9: Terraform Plan
+      # Step 11: Terraform Plan
       # -----------------------------
       - name: Terraform Plan
         id: plan
@@ -90,7 +105,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       # -----------------------------
-      # Step 10: Upload Plan Artifact
+      # Step 12: Upload Plan Artifact
       # -----------------------------
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
@@ -111,11 +126,9 @@ jobs:
       contents: read
 
     steps:
-      # Step 1: Checkout
       - name: Checkout
         uses: actions/checkout@v5.0.0
 
-      # Step 2: Azure Login
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
@@ -123,19 +136,16 @@ jobs:
           tenant-id: e66a3e9f-8b6b-4541-aa09-a25d0fbce6b1
           subscription-id: b43bd80e-9eef-4206-b932-7dba68f2f340
 
-      # Step 3: Terraform Init
       - name: Terraform Init
         working-directory: env/preprod
         run: terraform init
 
-      # Step 4: Download Terraform Plan Artifact
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: tfplan
           path: env/preprod
 
-      # Step 5: Terraform Apply
       - name: Terraform Apply
         working-directory: env/preprod
         run: terraform apply -auto-approve tfplan
