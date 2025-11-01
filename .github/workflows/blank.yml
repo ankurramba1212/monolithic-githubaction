@@ -3,14 +3,15 @@ name: Github-Action-Pipeline
 on:
   pull_request:
     branches:
-      - 'main'
+      - "main"
   push:
     branches:
-      - 'main'
+      - "main"
 
 permissions:
   id-token: write
   contents: read
+  security-events: write # required for uploading SARIF (security scan) results
 
 jobs:
   terraform_init_plan:
@@ -18,7 +19,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
-# create app in azureportel fill details like git id , repo name , branch(optional), permissions block dena padega # nahi to error ayega
+      # create app in azureportel fill details like git id , repo name , branch(optional), permissions block dena padega # nahi to error ayega
       - name: Azure Login
         uses: Azure/login@v2.3.0
         with:
@@ -31,24 +32,38 @@ jobs:
         run: terraform init
 
       - name: Terraform fmt
-        working-directory: env/preprod
+        working-directory: env
         run: terraform fmt -check
         continue-on-error: true
 
       - name: Terraform validate
-        working-directory: env/preprod
+        working-directory: env/
         run: terraform validate
+
+        # ✅ New Step: tfsec security scan
+      - name: Run tfsec (Terraform Security Scan)
+        uses: aquasecurity/tfsec-sarif-action@v0.1.4
+        with:
+          working_directory: env
+          sarif_file: tfsec.sarif
+        continue-on-error: true # so even if tfsec finds issues, pipeline won’t fail immediately
+
+      # Optional: Upload tfsec report to GitHub Security tab
+      - name: Upload tfsec results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: tfsec.sarif
 
       - name: Terraform Plan
         id: plan
         working-directory: env/preprod
         run: terraform plan -out=tfplan
-       # Saving the plan file as an artifact to be used in the apply step
+        # Saving the plan file as an artifact to be used in the apply step
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: env/preprod/tfplan  
+          path: env/preprod/tfplan
 
   terraform_apply:
     if: github.ref == 'refs/heads/main'
@@ -77,7 +92,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tfplan
-          path: env/preprod  
+          path: env/preprod
 
       - name: Terraform Apply
         working-directory: env/preprod
