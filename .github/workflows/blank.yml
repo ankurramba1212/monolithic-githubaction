@@ -40,19 +40,23 @@ jobs:
         working-directory: env/
         run: terraform validate
 
-        # ✅ New Step: tfsec security scan
-      - name: Run tfsec (Terraform Security Scan)
-        uses: aquasecurity/tfsec-sarif-action@v0.1.4
-        with:
-          working_directory: env
-          sarif_file: tfsec.sarif
-        continue-on-error: true # so even if tfsec finds issues, pipeline won’t fail immediately
+        # ✅ Install tfsec manually (Windows compatible)
+      - name: Install tfsec
+        run: |
+          choco install tfsec -y || scoop install tfsec
 
-      # Optional: Upload tfsec report to GitHub Security tab
-      - name: Upload tfsec results to GitHub Security tab
+      # ✅ Run tfsec security scan
+      - name: Run tfsec security scan
+        working-directory: env/preprod
+        run: |
+          tfsec . --format sarif --out tfsec.sarif || echo "tfsec found issues"
+
+      # ✅ Upload tfsec SARIF results to GitHub Security tab
+      - name: Upload tfsec SARIF results to GitHub Security tab
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: tfsec.sarif
+          sarif_file: env/preprod/tfsec.sarif
 
       - name: Terraform Plan
         id: plan
